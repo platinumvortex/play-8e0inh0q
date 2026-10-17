@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"><meta name="theme-color" content="#0b0b16"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="description" content="Your own two-player Street Fighter arcade. Host a room, share the code, and fight over the internet."><title>Turbo Arcade · Street Fighter II</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css?v=4"></head>
+<body>
+<main id="cabinet">
+ <div id="hud">
+  <div class="hud-group"><button id="menuButton" class="pill" aria-label="Open game menu">☰</button><span id="connectionBadge" class="pill badge">SOLO</span></div>
+  <div class="hud-group"><button id="roomBadge" class="pill" hidden aria-label="Room code">ROOM<b id="roomCodeTop"></b></button><button id="soundButton" class="pill sound-locked" aria-label="Enable game audio">TAP FOR SOUND</button></div>
+ </div>
+ <aside id="leftZone" class="left-controls controls" aria-label="Joystick">
+  <div id="dpad" role="group" aria-label="Eight-direction arcade joystick"><span class="direction up"></span><span class="direction right"></span><span class="direction down"></span><span class="direction left"></span><span id="stick"></span></div>
+ </aside>
+ <section id="screenSection"><div class="screen-rim"><div id="gameViewport">
+  <iframe id="emulatorFrame" title="Street Fighter arcade" src="engine.html?v=3" allow="autoplay" tabindex="-1"></iframe><video id="remoteVideo" playsinline autoplay muted hidden></video>
+  <div id="lobby">
+   <div class="lobby-title"><span class="edition">CAPCOM · 1994</span><h1><span>SUPER</span>STREET FIGHTER <i>II</i><em>TURBO</em></h1></div>
+   <div class="lobby-page" data-page="home">
+    <button id="soloButton" class="primary" disabled>PLAY SOLO</button>
+    <div class="lobby-pair"><button id="hostButton" class="secondary">HOST ONLINE</button><button id="joinButton" class="secondary">JOIN WITH CODE</button></div>
+    <small id="loadingNote">Starting the original arcade…</small>
+   </div>
+   <div class="lobby-page" data-page="host" hidden>
+    <span class="eyebrow">ROOM CODE</span><strong id="roomCode" class="room-code">····</strong>
+    <div class="lobby-pair"><button id="shareInvite" class="primary">SEND INVITE ↗</button><button id="practiceButton" class="secondary" disabled>PRACTICE</button></div>
+    <small id="hostNote" role="status">Opening your room…</small>
+    <button class="text-button" data-lobby="home">Back</button>
+   </div>
+   <form class="lobby-page" data-page="join" id="joinForm" hidden>
+    <span class="eyebrow">ENTER YOUR FRIEND’S CODE</span>
+    <input id="joinCode" class="room-code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" aria-label="Room code" placeholder="····">
+    <button id="joinSubmit" class="primary" type="submit" disabled>JOIN MATCH →</button>
+    <small id="joinNote" role="status">Works on the same Wi-Fi or across the internet.</small>
+    <button class="text-button" type="button" data-lobby="home">Back</button>
+   </form>
+  </div>
+  <div id="screenMessage" hidden><strong id="screenMessageTitle"></strong><span id="screenMessageText"></span><button id="resumeButton" class="primary" hidden>CONTINUE</button><button id="retryConnection" class="secondary" hidden>TRY AGAIN</button><button id="leaveOverlay" class="text-button" hidden>Back to lobby</button></div>
+ </div></div></section>
+ <aside id="rightZone" class="right-controls controls" aria-label="Attack buttons">
+  <div class="combo-row"><button data-control="ppp" aria-label="All three punches">3P</button><button data-control="kkk" aria-label="All three kicks">3K</button><button id="startButton">START</button></div>
+  <div class="button-cluster">
+   <button data-control="lp" class="attack punch light" aria-label="Light punch">LP</button><button data-control="mp" class="attack punch medium" aria-label="Medium punch">MP</button><button data-control="hp" class="attack punch heavy" aria-label="Heavy punch">HP</button>
+   <button data-control="lk" class="attack kick light" aria-label="Light kick">LK</button><button data-control="mk" class="attack kick medium" aria-label="Medium kick">MK</button><button data-control="hk" class="attack kick heavy" aria-label="Heavy kick">HK</button>
+  </div>
+ </aside>
+</main>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<dialog id="roomDialog"><div class="dialog-top"><span class="eyebrow">ONLINE MATCH</span><button class="close" data-close aria-label="Close">×</button></div><h2>Invite player 2</h2><div class="room-ticket"><span>ROOM CODE</span><strong id="roomCodeDialog" class="room-code">····</strong><input id="inviteLink" readonly aria-label="Invitation link"></div><div class="dialog-pair"><button id="shareDialog" class="primary">SEND INVITE LINK ↗</button><button id="copyInvite" class="secondary">COPY LINK</button></div><p id="roomStatus" class="fine" role="status">Your friend taps Join with code, or opens the link. The match starts by itself.</p></dialog>
+<dialog id="menuDialog"><div class="dialog-top"><span class="eyebrow">PAUSED</span><button class="close" data-close aria-label="Close">×</button></div>
+ <div class="menu-grid"><button id="resumeMenu" class="primary">RESUME →</button><button id="inviteMenu" class="secondary">INVITE PLAYER 2</button><button id="restartButton" class="secondary">RESTART ARCADE</button><button id="helpButton" class="secondary">HOW TO PLAY</button></div>
+ <div class="settings">
+  <div class="setting">SCREEN<span class="segmented" id="viewSetting"><button data-view="fit">Fit controls</button><button data-view="big">Big screen</button></span></div>
+  <div class="setting">RUMBLE<span class="segmented" id="rumbleSetting"><button data-rumble="off">Off</button><button data-rumble="hits">Hits</button><button data-rumble="all">Hits + buttons</button></span></div>
+  <label class="setting">VOLUME <input id="volume" type="range" min="0" max="1" step="0.05" value="0.8"></label>
+  <label class="setting">BUTTON SIZE <input id="controlSize" type="range" min="0.8" max="1.25" step="0.05" value="1"></label>
+ </div>
+ <button id="exitButton" class="text-button">Leave match</button></dialog>
+<dialog id="helpDialog"><div class="dialog-top"><span class="eyebrow">LEARN THE CONTROLS</span><button class="close" data-close aria-label="Close">×</button></div><h2>Make every hit count.</h2><div class="tips"><p><b>Move & defend</b>Put your thumb anywhere on the left side: the stick jumps under it. Hold away from your opponent to block; down + away blocks low.</p><p><b>Six attacks</b>Top row punches, bottom row kicks: light, medium, heavy. Rest your thumb between two buttons to press both. 3P / 3K press all three.</p><p><b>Hadouken</b>Facing right: roll down → down-forward → forward, then punch.</p><p><b>Play online</b>Host online, then send the invite link or read out the four-letter code. Your friend taps Join with code. Same Wi-Fi or across the internet.</p><p><b>Keyboard & controllers</b>Arrows move. A / S / D punch. Z / X / C kick. Enter starts. Escape pauses. Standard gamepads work and rumble.</p><p><b>On iPhone</b>Open in Safari, Share → Add to Home Screen. Sound plays even with the silent switch on. Rumble needs iOS 18 or later.</p></div><details><summary>Connection details</summary><p class="fine">The host’s phone runs the arcade and streams it to player 2 over WebRTC, directly between the devices. Very strict networks (some mobile carriers, office Wi-Fi) need a relay server; see README. A host reload creates a new room.</p></details><p class="fine"><a href="licenses/SOURCES.md" target="_blank" rel="noopener">Open-source credits & licenses ↗</a></p><button class="primary" data-close>GOT IT →</button></dialog>
+<script src="vendor/peerjs.min.js"></script><script src="vendor/fflate.js"></script><script type="module" src="app.js?v=5"></script>
+</body></html>

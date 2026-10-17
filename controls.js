@@ -1,0 +1,32 @@
+import {BITS,normalizeMask} from './protocol.js';
+import {haptics} from './haptics.js';
+const KEYS={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',KeyA:'lp',KeyS:'mp',KeyD:'hp',KeyZ:'lk',KeyX:'mk',KeyC:'hk',Enter:'start',Digit5:'coin'};
+const SECTORS=[BITS.right,BITS.right|BITS.down,BITS.down,BITS.down|BITS.left,BITS.left,BITS.left|BITS.up,BITS.up,BITS.up|BITS.right];
+const DEAD=.22,STICKY=.14;
+/* Eight equal sectors with a little hysteresis, so a thumb resting on a sector edge does not flicker between
+   down and down-forward in the middle of a quarter-circle. */
+export function padSector(x,y,previous=null){const r=Math.hypot(x,y);if(r<(previous===null?DEAD:DEAD*.8))return null;const a=Math.atan2(y,x);if(previous!==null){let d=Math.abs(a-previous*Math.PI/4)%(2*Math.PI);if(d>Math.PI)d=2*Math.PI-d;if(d<Math.PI/8+STICKY)return previous}return(Math.round(a/(Math.PI/4))+8)%8}
+export class Controls{
+ constructor({change,enabled,menu}){this.change=change;this.enabled=enabled;this.sources=new Map;this.mask=0;this.pad=document.querySelector('#dpad');this.stick=document.querySelector('#stick');this.leftZone=document.querySelector('#leftZone');this.rightZone=document.querySelector('#rightZone');this.padPointer=null;this.sector=null;this.origin=null;
+  this.buttons=[...document.querySelectorAll('[data-control]')];this.attacks=this.buttons.filter(b=>b.classList.contains('attack'));
+  /* Left zone: the whole area is the joystick. A touch away from the stick re-centres it under the thumb. */
+  this.leftZone.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;e.preventDefault();if(!this.enabled()||this.padPointer!==null)return;this.padPointer=e.pointerId;this.leftZone.setPointerCapture(e.pointerId);this.anchor(e);this.move(e)});
+  this.leftZone.addEventListener('pointermove',e=>{if(e.pointerId===this.padPointer){e.preventDefault();this.move(e)}});
+  for(const ev of ['pointerup','pointercancel','lostpointercapture'])this.leftZone.addEventListener(ev,e=>{if(e.pointerId===this.padPointer)this.releasePad()});
+  /* Right zone: each touch presses the nearest attack button, or two when the thumb sits between them. Sliding re-targets. */
+  this.rightZone.addEventListener('pointerdown',e=>{const extra=e.target.closest('[data-control]:not(.attack)');if(e.target.closest('button:not([data-control])'))return;e.preventDefault();if(!this.enabled())return;this.rightZone.setPointerCapture(e.pointerId);const mask=extra?BITS[extra.dataset.control]:this.attackAt(e.clientX,e.clientY);this.sources.set('p'+e.pointerId,{mask,fixed:!!extra});this.emit()});
+  this.rightZone.addEventListener('pointermove',e=>{const s=this.sources.get('p'+e.pointerId);if(!s||s.fixed)return;e.preventDefault();const mask=this.attackAt(e.clientX,e.clientY);if(mask!==s.mask){s.mask=mask;this.emit()}});
+  for(const ev of ['pointerup','pointercancel','lostpointercapture'])this.rightZone.addEventListener(ev,e=>{if(this.sources.delete('p'+e.pointerId))this.emit()});
+  window.addEventListener('keydown',e=>{if(e.target.matches('input,textarea')||e.metaKey||e.ctrlKey||e.altKey)return;if(e.code==='Escape'){e.preventDefault();menu();return}if(!KEYS[e.code]||!this.enabled())return;e.preventDefault();this.sources.set(e.code,{mask:BITS[KEYS[e.code]]});this.emit()});window.addEventListener('keyup',e=>{if(KEYS[e.code]&&this.sources.delete(e.code))this.emit()});window.addEventListener('blur',()=>this.release());document.addEventListener('visibilitychange',()=>{if(document.hidden)this.release()});window.addEventListener('contextmenu',e=>{if(e.target.closest('.controls'))e.preventDefault()});
+  this.poll();
+ }
+ attackAt(x,y){let best=null,second=null;for(const b of this.attacks){const r=b.getBoundingClientRect(),radius=r.width/2,d=Math.hypot(x-r.left-radius,y-r.top-r.height/2)/radius;if(!best||d<best.d){second=best;best={b,d}}else if(!second||d<second.d)second={b,d}}if(!best||best.d>1.5)return 0;let mask=BITS[best.b.dataset.control];if(second&&second.d<1.3&&second.d-best.d<.3)mask|=BITS[second.b.dataset.control];return mask}
+ anchor(e){/* The pad is at its home position whenever no thumb is on it. */const zone=this.leftZone.getBoundingClientRect(),r=this.pad.getBoundingClientRect(),half=r.width/2,home={x:r.left+half,y:r.top+half};let cx=home.x,cy=home.y;
+  if(Math.hypot(e.clientX-cx,e.clientY-cy)>half*1.1){cx=Math.min(Math.max(e.clientX,zone.left+half*.7),zone.right-half*.7);cy=Math.min(Math.max(e.clientY,zone.top+half*.7),zone.bottom-half*.7);this.pad.style.transform=`translate(${cx-home.x}px,${cy-home.y}px)`;this.pad.classList.add('floating')}
+  this.origin={x:cx,y:cy,radius:half}}
+ move(e){const o=this.origin;if(!o)return;const x=(e.clientX-o.x)/(o.radius*.62),y=(e.clientY-o.y)/(o.radius*.62),sector=padSector(x,y,this.sector);if(sector!==this.sector&&sector!==null&&this.sector===null)haptics.tap();this.sector=sector;this.sources.set('pad',{mask:sector===null?0:SECTORS[sector]});const d=Math.max(1,Math.hypot(x,y)),travel=o.radius*.36;this.stick.style.transform=`translate(${x/d*travel}px,${y/d*travel}px)`;this.pad.dataset.dir=sector===null?'':sector;this.emit()}
+ releasePad(){this.padPointer=null;this.sector=null;this.origin=null;this.sources.delete('pad');this.stick.style.transform='';this.pad.style.transform='';this.pad.classList.remove('floating');this.pad.dataset.dir='';this.emit()}
+ emit(){let mask=0;if(this.enabled())for(const s of this.sources.values())mask|=s.mask;mask=normalizeMask(mask);let pressed=false;for(const b of this.buttons){const bit=BITS[b.dataset.control],on=(mask&bit)===bit;if(on&&!b.classList.contains('pressed'))pressed=true;b.classList.toggle('pressed',on)}if(pressed)haptics.tap();if(mask!==this.mask){this.mask=mask;this.change(mask)}}
+ release(){this.sources.clear();if(this.padPointer!==null||this.origin)this.releasePad();else this.emit()}
+ poll(){let m=0;if(this.enabled()){const gp=Array.from(navigator.getGamepads?.()||[]).find(g=>g?.connected&&g.mapping==='standard');if(gp){const b=i=>gp.buttons[i]?.pressed;const x=Math.abs(gp.axes[0]||0)>.35?gp.axes[0]:0,y=Math.abs(gp.axes[1]||0)>.35?gp.axes[1]:0;if(x||y){const s=padSector(x,y);if(s!==null)m|=SECTORS[s]}if(b(12))m|=BITS.up;if(b(13))m|=BITS.down;if(b(14))m|=BITS.left;if(b(15))m|=BITS.right;for(const [i,name]of [[2,'lp'],[3,'mp'],[4,'hp'],[0,'lk'],[1,'mk'],[5,'hk'],[8,'coin'],[9,'start']])if(b(i))m|=BITS[name]}}const previous=this.sources.get('gamepad')?.mask||0;if(m!==previous){this.sources.set('gamepad',{mask:m});this.emit()}requestAnimationFrame(()=>this.poll())}
+}
