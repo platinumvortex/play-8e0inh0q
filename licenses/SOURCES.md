@@ -7,14 +7,13 @@
 - Unmodified bundled frontend and extraction helpers from https://cdn.emulatorjs.org/stable/data/ (retrieved 2026-10-17).
 - The frontend is instantiated and controlled by our separate app; no upstream source changes.
 
-## MAME 2003 Plus / RetroArch web runtime
+## FinalBurn Neo / RetroArch web runtime
 
-- Core version reported by runtime: `3a72dae`; stable build started 2025-06-14T19:09:40+00:00.
-- MAME source: https://github.com/libretro/mame2003-plus-libretro/tree/3a72dae
-- MAME license: https://github.com/libretro/mame2003-plus-libretro/blob/3a72dae/LICENSE.md
+- EmulatorJS stable core `fbneo-legacy-wasm.data`, build 2025-06-14T18:50:28+00:00 (core package 2.0.2).
+- Chosen because its emulation is deterministic and its save states are complete, which online lockstep play requires (it is the core Fightcade uses for netplay). MAME 2003 Plus was tested first and drifted between two instances within seconds.
+- Source: https://github.com/EmulatorJS/FBNeo (upstream https://github.com/finalburnneo/FBNeo)
+- License: `licenses/FinalBurnNeo.txt` (verbatim from the bundled archive). FB Neo is non-commercial: it may not be sold or used for profit.
 - Runtime source/build project: https://github.com/EmulatorJS/EmulatorJS
-- Bundled `.data` archives contain their upstream build metadata and license.
-- This legacy MAME core carries its upstream noncommercial license restrictions.
 
 ## PeerJS 1.5.5
 
