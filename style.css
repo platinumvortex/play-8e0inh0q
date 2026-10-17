@@ -3,7 +3,7 @@
  --safe-l:env(safe-area-inset-left);--safe-r:env(safe-area-inset-right);--safe-t:env(safe-area-inset-top);--safe-b:env(safe-area-inset-bottom);
  --side:clamp(150px,20vw,280px);--pad:calc(min(var(--side) - 14px,52vh,200px)*var(--size));--btn:calc(min((var(--side) - 20px)/3.25,17vh,72px)*var(--size));
  font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input{-webkit-user-select:text;user-select:text}html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 body{height:100dvh;padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);background:radial-gradient(ellipse at 50% 40%,#25203d 0,var(--bg) 70%)}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid var(--line);background:#23263a;border-radius:8px;min-height:40px;padding:8px 14px;font-size:12px;font-weight:800;letter-spacing:.06em;touch-action:manipulation;user-select:none;-webkit-user-select:none}

@@ -104,6 +104,8 @@ async function openRoom(){S.localPause=true;release();updatePause();showDialog('
 function exit(){release();S.net?.close();engine()?.stopCapture?.();wakeLock?.release().catch(()=>{});location.replace(location.pathname)}
 
 /* Wiring */
+/* No iOS text selection, magnifier or callout anywhere outside the code field. */
+document.addEventListener('selectstart',e=>{if(!e.target.closest?.('input'))e.preventDefault()});document.addEventListener('contextmenu',e=>{if(!e.target.closest?.('input'))e.preventDefault()});document.addEventListener('dblclick',e=>e.preventDefault());
 $('soloButton').onclick=solo;$('practiceButton').onclick=solo;
 $('hostButton').onclick=()=>showPage('host');$('joinButton').onclick=()=>showPage('join');
 for(const b of document.querySelectorAll('[data-lobby]'))b.onclick=()=>showPage(b.dataset.lobby);

@@ -2,11 +2,16 @@
    but toggling a native switch control plays the system haptic. Controllers: gamepad rumble motors. */
 export const RUMBLE_MODES=['off','hits','all'];
 const iOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-let mode='hits',toggle=null;
+let mode='hits',pendingAt=0;
 try{const saved=localStorage.getItem('turbo-rumble');if(RUMBLE_MODES.includes(saved))mode=saved}catch{}
-function iosTick(){if(!toggle){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.setAttribute('switch','');label.setAttribute('aria-hidden','true');label.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden';label.append(input);document.body.append(label);toggle=label}toggle.click()}
+/* iOS only plays the switch haptic inside a user activation: touchend/pointerup/click/keydown, not touchstart.
+   Rumbles raised elsewhere (a press, a hit seen on screen, a packet from the host) wait for the next finger lift. */
+function iosTick(){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.setAttribute('switch','');label.setAttribute('aria-hidden','true');label.style.display='none';label.append(input);document.head.append(label);label.click();label.remove()}
+const activeGesture=()=>navigator.userActivation?.isActive??false;
+function iosRumble(){if(activeGesture())iosTick();else pendingAt=performance.now()}
+if(iOS)for(const ev of ['touchend','pointerup','click','keydown'])document.addEventListener(ev,()=>{if(pendingAt&&performance.now()-pendingAt<600)iosTick();pendingAt=0},{capture:true,passive:true});
 function pads(strong,weak,ms){for(const gp of navigator.getGamepads?.()||[]){try{gp?.vibrationActuator?.playEffect?.('dual-rumble',{duration:ms,strongMagnitude:strong,weakMagnitude:weak})?.catch?.(()=>{})}catch{}}}
-function buzz(pattern,ticks){if(navigator.vibrate){try{navigator.vibrate(pattern)}catch{}}else if(iOS){iosTick();for(let i=1;i<ticks;i++)setTimeout(iosTick,i*70)}}
+function buzz(pattern,ticks){if(navigator.vibrate){try{navigator.vibrate(pattern)}catch{}}else if(iOS)iosRumble()}
 export const haptics={
  get mode(){return mode},
  set mode(value){if(!RUMBLE_MODES.includes(value))return;mode=value;try{localStorage.setItem('turbo-rumble',value)}catch{}},
