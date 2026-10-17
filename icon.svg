@@ -1,21 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
  <defs>
-  <radialGradient id="sky" cx="60%" cy="62%" r="78%"><stop offset="0" stop-color="#ff9a3c"/><stop offset=".35" stop-color="#d8344a"/><stop offset=".72" stop-color="#4a1658"/><stop offset="1" stop-color="#150b2c"/></radialGradient>
-  <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset=".45" stop-color="#7fd4ff" stop-opacity=".9"/><stop offset="1" stop-color="#2a6cff" stop-opacity="0"/></radialGradient>
-  <radialGradient id="core" cx="45%" cy="42%" r="60%"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#d9f7ff"/><stop offset="1" stop-color="#3fa9ff"/></radialGradient>
-  <linearGradient id="flame" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2b5dff" stop-opacity="0"/><stop offset=".45" stop-color="#3d8dff" stop-opacity=".8"/><stop offset="1" stop-color="#9fe2ff"/></linearGradient>
-  <linearGradient id="band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a46"/><stop offset="1" stop-color="#b0101f"/></linearGradient>
+  <radialGradient id="sky" cx="55%" cy="52%" r="78%"><stop offset="0" stop-color="#ff9a3c"/><stop offset=".35" stop-color="#d8344a"/><stop offset=".72" stop-color="#4a1658"/><stop offset="1" stop-color="#150b2c"/></radialGradient>
+  <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset=".3" stop-color="#8fe0ff" stop-opacity=".75"/><stop offset="1" stop-color="#2a6cff" stop-opacity="0"/></radialGradient>
  </defs>
  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
- <g stroke="#ffe08a" stroke-linecap="round" opacity=".3"><path d="M330 330L520 210" stroke-width="12"/><path d="M330 330L520 380" stroke-width="8"/><path d="M330 330L470 520" stroke-width="12"/><path d="M330 330L300 520" stroke-width="7"/></g>
- <!-- Headband: knot top right, two long tails whipping left in the wind -->
- <path d="M392 120 C330 70 270 120 200 96 C150 80 110 40 30 58 C90 70 120 112 180 128 C250 146 320 120 392 150Z" fill="url(#band)"/>
- <path d="M384 150 C320 150 280 200 210 196 C160 194 120 170 40 196 C100 196 130 230 200 232 C280 234 330 190 392 178Z" fill="#a50f22"/>
- <path d="M200 96 C150 80 110 40 30 58 C90 62 130 92 190 108Z" fill="#ff8a70" opacity=".45"/>
- <ellipse cx="396" cy="148" rx="22" ry="30" fill="#e3283a" stroke="#7a0b1a" stroke-width="6"/>
- <!-- Fireball with a flaming tail -->
- <path d="M40 300 L120 280 L92 252 L180 262 L170 226 L250 256 L330 250 L330 410 L250 404 L176 432 L186 396 L96 404 L124 374 L46 352 L110 330Z" fill="url(#flame)"/>
- <circle cx="330" cy="330" r="150" fill="url(#glow)"/>
- <circle cx="330" cy="330" r="88" fill="url(#core)"/>
- <path d="M330 268 A62 62 0 1 1 272 352 A44 44 0 1 0 352 300 A26 26 0 1 1 316 324" fill="none" stroke="#4aa6ff" stroke-width="12" stroke-linecap="round" opacity=".75"/>
+ <g stroke="#ffe08a" stroke-linecap="round" opacity=".3"><path d="M330 256L520 120" stroke-width="12"/><path d="M330 256L520 300" stroke-width="8"/><path d="M330 256L500 470" stroke-width="12"/><path d="M330 256L330 520" stroke-width="7"/><path d="M330 256L440 0" stroke-width="8"/></g>
+ <ellipse cx="300" cy="256" rx="210" ry="170" fill="url(#glow)"/>
+ <!-- Ryu's Hadouken, taken from the game's own sprite -->
+ <image x="56" y="105" width="400" height="301" preserveAspectRatio="none" style="image-rendering:pixelated" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADoAAAAiCAYAAAAOPsreAAAE9ElEQVR4nL1ZjXHzKBBdvlEDXAmkBK4ErgRcgl2CXYJdgl2CVUJUQighlBCVoG920SKM0I9j+d5MIiMh4PF2lwWJvZKAMEaD9x4Yx89vcLcD6P2VyrvaQ+08gGvgAdqA1Qrqpu2o3Ldn+ytDZeU18L6la91f7/4glFbQ1A0Ya0ZX7zzgcwber03gJJhoPhhuAAm37gZS7+HkgRqLpB6YPBLkttTQL+jnuYILHAE1SIl/yYvAsaTipGCCShswyj4SpQdZeX8+wj833f2WjIbX4BYIX20jGl/H+j6zOCSKiESHQSuSH9VMf6PC/7p9JFwiyyRfJTeHW084JY2ENXyIqXeQ7Mh0kVx4GAimYHM+qXvHZMM74TkSfSfJEuGcrC9YMo6vaLpIlm2fVc3VZIIlv9MbmWg6UC5zn3qBrOrfwSsp+nk0UNfugSRHrkiuQPCBmHwfSVtoEOutJYtAohWuGIzg5BytFNzhRHa/g3MH2Ah23DeaEuYBYufuCcJrCBbb6ScWScZJprFIGl/tvzutgs/GYARy309PuIG4t5dAbibwvKroEsm1E8Xqclt+IkBVw1t94NEGdvIIAG2o5KHj4G0nFn4eLGEF6S1IxvbRilJlJ1B9nXHtcTH4nFpLERUx5ZMlvOqnW0DLggn3qv7Jswv0y+6oBPmkb8kMJpKPSVXJpKbqbaRmJMexIbWqDBSM0hu8PsLFgzVqUc05c9FPknynqgoOoqKgo8rp3ZLJlmYxBoaFd3KSv1Ez9rngq0ZZqNBUyXTjgqxCxJ1ZN0cdPZHfYl1cFtIkYGvsJcApu/douuaze1bVXNl0LaUy1+mvfW7ydlgNUPfme6hNJ2D/FdWbWyvXIFc2N+00jcNZ53UQ7583CNW3gunixF4aD9WXvglM9dK1MmA+1ZuCnquvx8V3CuzazHTJTxtPUZd286iqb0cqh2i2APmcorHui+uvW5hAkZruWp+cQknxNMrOBaBXoi71U0j2PW/S5U5UqZprThBmOyv4CCpHz5hF39a7Ii5kJEPO2wxR9+x3QoECe/0EcXBdar75bqWEV49QKBr/UtVcTVfKjHjvGXcrF2T1fBTO1cx9Lv6W71XWZWU8U8IQGxVFE0Y1uba4Lau69UHYb1Rd2qodrQbnHVSY1Kcgs0UkqlKx/53u3Ecp4AribFqciL8zQ/oxjfA3R32S6aZku6sWrD+pipE5KNsNxF9Tdo7sM6ouqWmb4Rj0D/5LT7cZuEf91ngCgW8P0m1lvjp7P20TyS5t9fIAlOPc/Ec5PP9FH83JfnAvSoHVspuKuul5EQ8iJbKGbClAxZx45nAsLl2ZmvL0IZQJLyJJ3KiIn6/wbYX60/vH0aLd4tluSy2O1llj5OYnC0t71jyxyEnaZkdK8vk0HypUaKIIpR+HifeDqmxb42SC2lDzu5ZnkZv0XEMlJYE+lrUj66uYYK4m3ffhwOzeetBSiw8Ho1wYOzla+b+eF6WqN00IPOSTMCgIc/vRIloJO9BdbD3Ji6monj8F3JLgj7mJqwJoPH5dcP0ZVxhQCEQtfRKtopJTkC101oh01HGtZShJJ21WyY6/1uBEcHDf4tNhumwgOluLViWrAQbTZnAeVpZJV/jtE/0RTZVIpzLwSHWBXCAYfyLJ9FHwkxVJRqw/vJeCiaGr4N75bodZkzJxGSNB1RKaZjDdtK2/LQAYSRVd/YQAAAAASUVORK5CYII="/>
 </svg>
