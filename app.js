@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id),wait=ms=>new Promise(r=>setTimeout(r,ms)
 const store={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
 const S={role:'host',rom:null,engineReady:false,started:false,paired:false,paused:true,localPause:false,away:document.hidden,remotePause:false,remoteAway:false,guestReady:false,linkHealthy:true,net:null,mask:0,muted:false,volume:.8,audioUnlocked:false,busy:false,startingRound:false,roundPending:false,roundPractice:false,roundEpoch:0,reason:'',fatal:false,page:'home',hostError:'',view:'fit',warnedLag:false,
  /* Online play: both phones run the arcade in lockstep (see lockstep.js). */
- ls:null,syncing:false,syncId:'',needSync:false,rx:null,rtt:0,stalled:false,checks:new Map,snapshots:new Map,guestChecks:new Map,fixing:false};
+ ls:null,syncing:false,syncStarted:0,syncedAt:-1e9,matchStarted:false,syncId:'',needSync:false,rx:null,rtt:0,stalled:false,checks:new Map,snapshots:new Map,guestChecks:new Map,fixing:false};
 const startBusy=[false,false];
 let toastTimer,framePromise,wakeLock,roomPromise,silentAudio;
 const engine=()=>$('emulatorFrame').contentWindow?.arcade;
@@ -51,7 +51,7 @@ function lobby(){const n=S.net,code=n?.code||'····',hosting=S.role==='host'&
 /* The public site only carries an encrypted ROM; the key travels in the private link (?k=…), never to GitHub's files. */
 async function downloadRom(){const key=new URLSearchParams(location.search).get('k');if(key){const response=await fetch('rom/game.bin');if(response.ok){try{return await decryptRom(await response.arrayBuffer(),key)}catch{throw new Error('This link’s game key is wrong. Open the exact link you were given.')}}}const response=await fetch('rom/ssf2tur1.zip');if(!response.ok)throw new Error(key?'The game could not load. Check your connection and reload.':'Open the game from your private link (it ends in ?k=…).');return response.blob()}
 /* Both players run the arcade: player 2 needs the same ROM, unlocked by the same link. */
-async function ensureEngine(){if(framePromise)return framePromise;framePromise=(async()=>{if(!engine())await new Promise(r=>$('emulatorFrame').addEventListener('load',r,{once:true}));try{S.rom=await getRom()}catch{}if(!S.rom){S.rom=await validateRom(await downloadRom());try{await storeRom(S.rom)}catch{}}await engine().start(S.rom);S.engineReady=true;const hold=S.role==='host'?S.away||S.localPause:false;if(!online())engine().pause(hold);if(S.role==='host')S.paused=hold;engine().volume(S.muted?0:S.volume);engine().unlock();engine().watchHits(onHit);soundUI();lobby();sendReady()})();return framePromise}
+async function ensureEngine(){if(framePromise)return framePromise;framePromise=(async()=>{if(!engine())await new Promise(r=>$('emulatorFrame').addEventListener('load',r,{once:true}));try{S.rom=await getRom()}catch{}if(!S.rom){S.rom=await validateRom(await downloadRom());try{await storeRom(S.rom)}catch{}}await engine().start(S.rom);S.engineReady=true;const hold=S.role==='host'?S.away||S.localPause:false;if(!online()){engine().pause(hold);if(S.role==='host')S.paused=hold}engine().volume(S.muted?0:S.volume);engine().unlock();engine().watchHits(onHit);soundUI();lobby();sendReady()})();return framePromise}
 async function host(){if(roomPromise)return roomPromise;S.hostError='';roomPromise=(async()=>{try{badge('OPENING ROOM');lobby();const n=await MatchNetwork.host();if(S.role==='guest'){n.close(false);return}S.net=n;bindNetwork(n);badge('WAITING');lobby()}catch(e){badge('OFFLINE','warn');S.hostError='Could not reach the matchmaking service. Check your internet, then tap Host online again.';roomPromise=null;S.page='host';lobby()}})();return roomPromise}
 /* Switching this page into player 2 keeps the arcade that is already loading. */
 function joinCode(code){history.replaceState(null,'','#room='+code);if(S.net){S.net.close();S.net=null}roomPromise=null;join(code)}
@@ -68,9 +68,10 @@ function bindNetwork(net){net.on('connected',()=>{if(net!==S.net)return;S.linkHe
   if(m.t==='li'){if(S.ls&&m.s===S.syncId)S.ls.receive(m.f,m.m)}
   else if(m.t==='need'){if(S.ls&&m.s===S.syncId)S.ls.resend(m.f)}
   else if(m.t==='ck'&&S.role==='host'){if(m.s===S.syncId){S.guestChecks.set(m.f,m.h);compareCheck(m.f)}}
-  else if(m.t==='ready'&&S.role==='host'){if(S.guestReady)return;S.guestReady=true;lobby();if(!S.paired)beginFight();else syncMatch(S.needSync?'resume':'new');sendState()}
+  /* Player 2 only says 'ready' while it has no running match, so it always needs a sync (a duplicate can trail a fresh sync briefly). */
+  else if(m.t==='ready'&&S.role==='host'){S.guestReady=true;lobby();if(!S.paired)beginFight();else if(!S.syncing&&performance.now()-S.syncedAt>3000)syncMatch(S.matchStarted?'resume':'new');sendState()}
   else if(m.t==='synced'&&S.role==='host')finishSync(m.id);
-  else if(m.t==='sync'&&S.role==='guest'){S.rx={...m,parts:new Array(m.n),got:0};if(m.kind!=='fix'){S.ls?.stop();S.syncing=true;overlay('GET READY','Lining up the two arcades…')}}
+  else if(m.t==='sync'&&S.role==='guest'){S.rx={...m,parts:new Array(m.n),got:0};if(m.kind!=='fix'){S.ls?.stop();S.syncing=true;S.syncStarted=performance.now();overlay('GET READY','Lining up the two arcades…')}}
   else if(m.t==='sc'&&S.role==='guest'){const rx=S.rx;if(!rx||rx.id!==m.id||rx.parts[m.i]!==undefined)return;rx.parts[m.i]=m.d;if(++rx.got===rx.n)applySync(rx)}
   else if(m.t==='presence'&&S.role==='host'){S.remotePause=m.paused;S.remoteAway=m.away;updatePause();sendState()}
   else if(m.t==='state'&&S.role==='guest'){S.started=m.started;S.reason=typeof m.reason==='string'?m.reason:'';S.paused=m.paused||S.localPause||S.away||!S.linkHealthy;if(!S.syncing)renderPause();lobby()}
@@ -92,14 +93,16 @@ const toBase64=u=>{let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharC
 const fromBase64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 async function sendSnapshot(id,kind,f,state){const packed=toBase64(fflate.deflateSync(state,{level:1})),size=48000,n=Math.ceil(packed.length/size);S.net.send({t:'sync',id,kind,f,n});
  for(let i=0;i<n;i++){const packet={t:'sc',id,i,d:packed.slice(i*size,(i+1)*size)};for(let tries=0;!S.net?.send(packet);tries++){if(tries>200||!S.net?.connected)return false;await wait(25)}}return true}
-async function syncMatch(kind){if(S.role!=='host'||S.syncing||!S.engineReady)return;S.syncing=true;S.needSync=false;S.ls?.stop();S.roundPending=false;updatePause();
- const lock=engine().lockstep;if(!await lock.begin()){S.syncing=false;toast('The arcade could not start online play. Reload both phones.');updatePause();return}
+async function syncMatch(kind){if(S.role!=='host'||S.syncing)return;S.syncing=true;S.syncStarted=performance.now();S.needSync=false;S.ls?.stop();S.roundPending=false;updatePause();
+ /* Player 2 can finish loading first: wait for this phone's arcade rather than starting without it. */
+ try{await ensureEngine()}catch{S.syncing=false;updatePause();return}
+ const lock=engine().lockstep;if(!await lock.begin()&&!await lock.begin()){S.syncing=false;overlay('ONLINE PLAY COULD NOT START','Reload both phones and join again.');$('retryConnection').hidden=false;updatePause();return}
  const state=lock.state();lock.load(state);S.syncId=Math.random().toString(36).slice(2,8);S.syncKind=kind;S.checks.clear();S.snapshots.clear();S.guestChecks.clear();S.fixing=false;
  if(!await sendSnapshot(S.syncId,kind,0,state)){S.syncing=false;S.needSync=true;S.guestReady=false;updatePause()}}
-function finishSync(id){if(id!==S.syncId||!S.syncing)return;S.ls=newLockstep(0,S.syncKind==='new'?startMacro(20):[]);S.syncing=false;S.stalled=false;updatePause();sendState();lobby()}
-async function applySync(rx){S.rx=null;let state;try{state=fflate.inflateSync(fromBase64(rx.parts.join('')))}catch{return}await ensureEngine();const lock=engine().lockstep;
+function finishSync(id){if(id!==S.syncId||!S.syncing)return;S.ls=newLockstep(0,S.syncKind==='new'?startMacro(20):[]);S.matchStarted=true;S.syncedAt=performance.now();S.syncing=false;S.stalled=false;updatePause();sendState();lobby()}
+async function applySync(rx){S.rx=null;const failed=()=>{if(rx.kind!=='fix'){S.syncing=false;sendReady()}};let state;try{state=fflate.inflateSync(fromBase64(rx.parts.join('')))}catch{failed();return}try{await ensureEngine()}catch{failed();return}const lock=engine().lockstep;
  if(rx.kind==='fix'){if(S.ls?.running&&rx.id===S.syncId)S.ls.resync(rx.f,state);return}
- if(!await lock.begin())return;lock.load(state);S.syncId=rx.id;S.ls=newLockstep(1,rx.kind==='new'?startMacro(150):[]);S.syncing=false;S.stalled=false;S.net.send({t:'synced',id:rx.id});renderPause()}
+ if(!await lock.begin()&&!await lock.begin()){failed();return}lock.load(state);S.syncId=rx.id;S.ls=newLockstep(1,rx.kind==='new'?startMacro(150):[]);S.syncing=false;S.stalled=false;S.net.send({t:'synced',id:rx.id});renderPause()}
 function newLockstep(player,macro){const ls=new Lockstep({engine:engine().lockstep,player,session:S.syncId,delay:delayFor(S.rtt||60),send:(p,reliable)=>S.net?.send(p,reliable),onCheckpoint,onStall});ls.start(0,macro);return ls}
 function stopOnline(){S.ls?.stop();S.ls=null;S.syncing=false;S.stalled=false;if(S.engineReady){engine().lockstep.end();if(S.paused)engine().pause(true)}}
 /* Every 30 frames both phones fingerprint the game's memory; the host corrects player 2 on a mismatch. */
@@ -166,7 +169,7 @@ for(const b of document.querySelectorAll('[data-rumble]'))b.onclick=()=>{setRumb
 function availability(){S.away=document.hidden;if(S.away)release();if(S.role==='guest'){if(S.away)S.paused=true;presence();if(!S.away)S.net?.connect()}else updatePause();if(!S.away){acquireWake();setTimeout(soundUI,300)}}
 document.addEventListener('visibilitychange',availability);
 window.addEventListener('pagehide',()=>{release();if(S.role==='guest')S.net?.send({t:'presence',away:true,paused:S.localPause})});window.addEventListener('pageshow',availability);
-setInterval(()=>{soundUI();sendState();presence();bodyState();sendReady()},1000);
+setInterval(()=>{if(S.syncing&&performance.now()-S.syncStarted>15000){S.syncing=false;S.rx=null;if(S.role==='host')updatePause()}soundUI();sendState();presence();bodyState();sendReady()},1000);
 window.addEventListener('online',()=>{S.net?.connect();S.net?.reconnectBroker()});
 (async()=>{const size=Number(store.get('turbo-controls-size'));if(size>=.8&&size<=1.25){$('controlSize').value=size;document.documentElement.style.setProperty('--size',size)}const volume=Number(store.get('turbo-volume')??.8);if(volume>=0&&volume<=1){S.volume=volume;$('volume').value=volume}S.muted=store.get('turbo-muted')==='1';setView(store.get('turbo-view'));setRumble(haptics.mode);
  const room=normalizeCode(new URLSearchParams(location.hash.slice(1)).get('room'));if(room&&validCode(room))join(room);else{lobby();ensureEngine().catch(e=>{overlay('ARCADE COULD NOT START',e.message);$('retryConnection').hidden=false})}
