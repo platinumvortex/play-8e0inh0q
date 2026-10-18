@@ -100,7 +100,7 @@ function bindNetwork(net){net.on('connected',()=>{if(net!==S.net)return;S.linkHe
    The same message corrects player 2 later if the two arcades ever disagree (kind 'fix'). */
 const toBase64=u=>{let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
 const fromBase64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-async function sendSnapshot(id,kind,f,state){const packed=toBase64(fflate.deflateSync(state,{level:1})),size=48000,n=Math.ceil(packed.length/size);S.net.send({t:'sync',id,kind,f,n});
+async function sendSnapshot(id,kind,f,state){const packed=toBase64(fflate.deflateSync(state,{level:1})),size=16000,n=Math.ceil(packed.length/size);S.net.send({t:'sync',id,kind,f,n});
  for(let i=0;i<n;i++){const packet={t:'sc',id,i,d:packed.slice(i*size,(i+1)*size)};for(let tries=0;!S.net?.send(packet);tries++){if(tries>200||!S.net?.connected)return false;await wait(25)}}return true}
 async function syncMatch(kind){if(S.role!=='host'||S.syncing)return;S.syncing=true;STATS.syncs++;note('sync ('+kind+') started');S.syncStarted=performance.now();S.needSync=false;S.ls?.stop();S.roundPending=false;updatePause();
  /* Player 2 can finish loading first: wait for this phone's arcade rather than starting without it. */
