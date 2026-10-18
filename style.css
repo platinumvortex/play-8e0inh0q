@@ -122,3 +122,4 @@ details{margin:14px 0;color:var(--muted);font-size:12px}summary{cursor:pointer}
 #toast{position:fixed;bottom:max(18px,var(--safe-b));left:50%;transform:translateX(-50%);max-width:min(560px,90vw);background:#e8ecf6;color:#141626;padding:12px 18px;font-size:13px;line-height:1.45;border-radius:10px;z-index:100;box-shadow:0 8px 30px #0009}
 @media (max-height:430px){dialog{padding:14px 18px}h2{font-size:21px;margin-bottom:8px}.settings{margin-top:12px;padding-top:10px;gap:8px}.menu-grid .primary{min-height:42px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.info{white-space:pre-wrap;font:11px/1.5 ui-monospace,Menlo,monospace;color:#d6d8e8;background:#0d0f1e;border:1px solid var(--line);border-radius:8px;padding:10px;margin:0 0 10px;-webkit-user-select:text;user-select:text}.info.log{max-height:38vh;overflow:auto;color:#aeb2c8}
