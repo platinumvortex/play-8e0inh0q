@@ -17,7 +17,7 @@ export class MatchNetwork extends EventTarget{
   p.on('error',e=>{if(this.closed||p!==this.peer)return;if(!opened){clearTimeout(timeout);reject(e)}else if(!this.connected){if(e.type==='peer-unavailable'&&++this.missing===4)this.emit('missing',this.code);this.emit('warning','Finding your friend’s arcade…');this.scheduleRetry()}});
   p.on('connection',c=>{if(this.closed||this.role!=='host'){c.close();return}this.attach(c)});
   p.on('call',call=>{if(this.closed||this.role!=='guest'||call.peer!==PREFIX+this.code){call.close();return}this.attachCall(call);call.answer()});
-  p.on('disconnected',()=>this.reconnectBroker());
+  p.on('disconnected',()=>{this.emit('trace','matchmaking server link lost (the match itself is unaffected)');this.reconnectBroker()});
   p.on('close',()=>{if(this.closed||p!==this.peer)return;this.lose();this.reconnectBroker()});
  })}
  reconnectBroker(){if(this.brokerTimer||this.closed)return;this.brokerTimer=this.later(async()=>{this.brokerTimer=null;try{if(this.peer?.destroyed){await this.openPeer();if(this.role==='guest')this.connect()}else if(this.peer?.disconnected)this.peer.reconnect()}catch{}if(this.peer?.disconnected||this.peer?.destroyed)this.reconnectBroker()},2000)}
@@ -25,6 +25,7 @@ export class MatchNetwork extends EventTarget{
  attach(c){let accepted=false;const timeout=this.later(()=>{if(!accepted){if(this.pending===c)this.pending=null;c.close();this.scheduleRetry()}},TIMING.handshake);
   // Keep PeerJS attached to its reliable control channel. It otherwise adopts every new channel.
   const pc=c.peerConnection;if(pc){const controlChannel=pc.ondatachannel;pc.ondatachannel=e=>{if(e.channel.label==='arcade-inputs')this.attachFast(e.channel,c);else controlChannel?.call(pc,e)}};
+  if(pc?.addEventListener)pc.addEventListener('connectionstatechange',()=>{if(c===this.conn||c===this.pending)this.emit('trace','WebRTC '+pc.connectionState)});
   c.on('open',()=>{if(this.closed){c.close();return}if(this.role==='guest')c.send(JSON.stringify({t:'hello',version:VERSION,session:this.session}))});
   const accept=()=>{const old=this.conn;this.conn=c;this.pending=null;accepted=true;clearTimeout(timeout);this.connected=true;this.attempt=0;this.missing=0;this.lastReceived=performance.now();this.setLag(false);if(old&&old!==c)old.close();this.emit('connected')};
   c.on('data',raw=>{const m=decodePacket(raw);if(!m||this.closed)return;
@@ -41,13 +42,17 @@ export class MatchNetwork extends EventTarget{
    if(m.t==='bye'){this.acceptedSession=null;this.lose();this.emit('left');c.close();return}
    if(m.t==='mediaRetry'&&this.role==='host'){this.repairMedia();return}this.emit('packet',m);
   });
-  const ended=()=>{clearTimeout(timeout);if(this.pending===c)this.pending=null;if(c===this.conn&&!this.closed)this.lose();if(!this.connected)this.scheduleRetry()};c.on('close',ended);c.on('error',ended);
+  const ended=()=>{clearTimeout(timeout);if(this.pending===c)this.pending=null;if(c===this.conn&&!this.closed)this.lose();if(!this.connected)this.scheduleRetry()};c.on('close',()=>{if(c===this.conn)this.emit('trace','data connection closed by the browser');ended()});
+  /* Only a real close ends a connection; PeerJS also reports recoverable problems as errors. */
+  c.on('error',e=>{if(c===this.conn)this.emit('trace','connection error: '+(e?.type||e?.message||e));if(!accepted)ended()});
  }
  attachFast(channel,c){channel.onmessage=e=>{if(c!==this.conn||!this.connected)return;const m=decodePacket(e.data);if(m?.t==='input'||m?.t==='li'){this.received();this.emit('packet',m)}};channel.onopen=()=>{if(c===this.conn)this.fast=channel};channel.onclose=()=>{if(this.fast===channel)this.fast=null};if(channel.readyState==='open'&&c===this.conn)this.fast=channel}
  received(){this.lastReceived=performance.now();this.setLag(false)}
  setLag(value){if(this.lagging===value)return;this.lagging=value;this.emit('health',!value)}
  /* Frequent input traffic takes the unordered, non-retransmitting channel unless asked to be reliable. */
- send(packet,reliable=false){if(!this.connected||!this.conn?.open)return false;const quick=packet.t==='input'||packet.t==='li',channel=quick&&!reliable&&this.fast?.readyState==='open'?this.fast:null;const buffered=channel?.bufferedAmount??this.conn.dataChannel?.bufferedAmount??0;if(buffered>(channel?4096:packet.t==='sc'?8e6:262144))return false;try{if(channel)channel.send(JSON.stringify(packet));else this.conn.send(JSON.stringify(packet));return true}catch{return false}}
+ send(packet,reliable=false){if(!this.connected||!this.conn?.open)return false;const quick=packet.t==='input'||packet.t==='li',channel=quick&&!reliable&&this.fast?.readyState==='open'?this.fast:null;const buffered=channel?.bufferedAmount??this.conn.dataChannel?.bufferedAmount??0;if(buffered>(channel?4096:packet.t==='sc'?8e6:262144))return false;/* Send on the data channel directly: PeerJS closes the whole connection if a single send throws (a briefly full
+    buffer on mobile Wi-Fi), which looked like random disconnects. Here a failed send just reports false. */
+  const text=JSON.stringify(packet),dc=channel||this.conn.dataChannel;try{if(dc?.send){if(dc.readyState&&dc.readyState!=='open')return false;dc.send(text)}else this.conn.send(text);return true}catch(e){this.emit('trace','send failed ('+(e?.name||e)+'), connection kept');return false}}
  tick(now=performance.now()){if(this.closed)return;if(this.connected){this.send({t:'ping',at:now});const age=now-this.lastReceived;this.setLag(age>TIMING.lag);if(age>TIMING.disconnect){const c=this.conn;this.lose();c?.close();this.scheduleRetry()}}else if(this.role==='guest')this.scheduleRetry();if(this.role==='host'&&this.connected&&this.stream&&(!this.call||['failed','closed'].includes(this.call.peerConnection?.connectionState)))this.repairMedia()}
  startHeartbeat(){clearInterval(this.heartbeat);this.heartbeat=setInterval(()=>this.tick(),TIMING.heartbeat)}
  lose(){if(!this.connected)return;this.connected=false;this.fast=null;this.emit('disconnected');/* The independent video connection can survive a data reconnect. */}
@@ -56,7 +61,7 @@ export class MatchNetwork extends EventTarget{
  repairMedia(){if(performance.now()-this.lastMediaRetry<TIMING.mediaRetry)return;this.lastMediaRetry=performance.now();if(this.role==='host')this.startMedia(this.stream,true);else this.send({t:'mediaRetry'})}
  attachCall(call){const old=this.call;this.call=call;old?.close();call.on('stream',s=>{if(call!==this.call)return;lowLatency(call.peerConnection);this.emit('stream',s)});
   const ended=()=>{if(call!==this.call||this.closed)return;this.call=null;this.emit('mediaLost');this.later(()=>this.repairMedia(),1200)};call.on('error',ended);call.on('close',ended);
-  const pc=call.peerConnection;if(pc)pc.addEventListener('connectionstatechange',()=>{if(call!==this.call)return;if(pc.connectionState==='connected'){this.emit('mediaConnected');for(const sender of pc.getSenders()){if(sender.track?.kind==='video'){const p=sender.getParameters();if(!p.encodings?.length)p.encodings=[{}];p.encodings[0].maxBitrate=1200000;p.encodings[0].maxFramerate=60;p.degradationPreference='maintain-framerate';sender.setParameters(p).catch(()=>{})}}}else if(pc.connectionState==='failed'){this.emit('mediaLost');this.repairMedia()}})
+  const pc=call.peerConnection;if(pc?.addEventListener)pc.addEventListener('connectionstatechange',()=>{if(call!==this.call)return;if(pc.connectionState==='connected'){this.emit('mediaConnected');for(const sender of pc.getSenders()){if(sender.track?.kind==='video'){const p=sender.getParameters();if(!p.encodings?.length)p.encodings=[{}];p.encodings[0].maxBitrate=1200000;p.encodings[0].maxFramerate=60;p.degradationPreference='maintain-framerate';sender.setParameters(p).catch(()=>{})}}}else if(pc.connectionState==='failed'){this.emit('mediaLost');this.repairMedia()}})
  }
  close(notify=true){if(notify)this.send({t:'bye'});this.closed=true;clearInterval(this.heartbeat);for(const t of this.timers)clearTimeout(t);this.timers.clear();this.pending?.close();this.call?.close();this.conn?.close();this.peer?.destroy();this.connected=false}
 }

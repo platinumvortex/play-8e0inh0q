@@ -14,8 +14,9 @@ const startBusy=[false,false];
 let toastTimer,framePromise,wakeLock,roomPromise,silentAudio;
 const engine=()=>$('emulatorFrame').contentWindow?.arcade;
 /* Connection log: what happened and when, for the Connection info screen in the menu. */
-const T0=performance.now(),LOG=[],STATS={drops:0,syncs:0,fixes:0,needs:0,stalls:0,longestStall:0,fps:0};
-function note(text){LOG.push(((performance.now()-T0)/1000).toFixed(1).padStart(6)+'s  '+text);if(LOG.length>80)LOG.shift();if($('infoDialog')?.open)showInfo()}
+const LOG=(()=>{try{return JSON.parse(sessionStorage.getItem('turbo-log')||'[]')}catch{return []}})(),STATS={drops:0,syncs:0,fixes:0,needs:0,stalls:0,longestStall:0,fps:0};let peerLog=[];
+function note(text){const d=new Date();LOG.push(d.toTimeString().slice(0,8)+'  '+text);if(LOG.length>120)LOG.shift();try{sessionStorage.setItem('turbo-log',JSON.stringify(LOG))}catch{}if($('infoDialog')?.open)showInfo()}
+note('page loaded'+(LOG.length>1?' (again: this phone reloaded)':''));
 const me=()=>S.role==='host'?0:1;
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5000)}
 function status(text){$('connectionBadge').title=text}
@@ -35,7 +36,7 @@ function presence(){if(S.role==='guest')S.net?.send({t:'presence',paused:S.local
 const MIRROR={'Your menu is open':'Your friend opened the menu','Your friend opened the menu':'Your menu is open','Come back to the arcade to continue':'Your friend will be right back','Your friend will be right back':'Come back to the arcade to continue'};
 function sendState(){if(S.role==='host')S.net?.send({t:'state',paused:S.paused,started:S.started,ready:S.guestReady,reason:MIRROR[S.reason]??S.reason})}
 function pauseReason(){if(S.away)return 'Come back to the arcade to continue';if(S.localPause)return 'Your menu is open';if(S.paired){if(S.remoteAway)return 'Your friend will be right back';if(S.remotePause)return 'Your friend opened the menu';if(!S.net?.connected||!S.linkHealthy)return 'Reconnecting automatically…';if(!S.guestReady)return 'Loading your friend’s arcade…';if(S.syncing)return 'Lining up the two arcades…'}return ''}
-function renderPause(){bodyState();if(!S.started)return;if(S.paused)overlay(S.localPause||S.reason.includes('menu')?'PAUSED':'ONE MOMENT',S.reason,S.localPause);else if(S.stalled)overlay('ONE MOMENT','Waiting for your friend’s connection…');else hideOverlay()}
+function renderPause(){bodyState();if(!S.started)return;if(S.paused)overlay(S.localPause||S.reason.includes('menu')?'PAUSED':'ONE MOMENT',S.reason,S.localPause);else hideOverlay()}
 /* Lockstep pauses itself (neither phone runs a frame without the other's input), so the emulator's own loop is only paused offline. */
 function updatePause(){if(S.role==='guest')return;S.reason=pauseReason();const paused=!!S.reason,changed=paused!==S.paused;S.paused=paused;if(paused&&changed)release();if(S.engineReady&&changed&&!engine().lockstep.active)engine().pause(paused);renderPause();if(changed)sendState();if(!paused&&S.roundPending)queueMicrotask(startRound)}
 
@@ -65,13 +66,14 @@ async function join(code){S.role='guest';S.paired=true;S.paused=true;$('lobby').
 /* Player 2 says when its arcade is loaded and waiting for the host's state. */
 function sendReady(){if(S.role==='guest'&&S.engineReady&&S.net?.connected&&!S.ls?.running&&!S.syncing)S.net.send({t:'ready'})}
 function bindNetwork(net){net.on('connected',()=>{if(net!==S.net)return;S.linkHealthy=true;S.fatal=false;badge('CONNECTED','connected');
-  note('connected'+(S.ls?.running?' (match continues at frame '+S.ls.frame+')':''));
+  note('connected'+(S.ls?.running?' (match continues at frame '+S.ls.frame+')':''));setTimeout(()=>S.net?.send({t:'log',lines:LOG.slice(-25).map(l=>l.slice(0,110))},true),500);
   if(S.role==='host'){S.guestReady=false;S.needSync=S.paired;S.remoteAway=false;S.remotePause=false;updatePause();sendState();haptics.land(.3)}
   /* After a brief drop both phones still hold the match and every recent input: just carry on.
      Player 2 tells the host which match it is in; anything else gets a fresh sync. */
   else{if(!S.ls?.running){S.syncing=false;sendReady()}else S.net.send({t:'ready',s:S.syncId,f:S.ls.frame});presence();if(!S.engineReady)overlay('CONNECTED','Loading the arcade…')}lobby()});
  net.on('packet',m=>{if(net!==S.net)return;
   if(m.t==='li'){if(S.ls&&m.s===S.syncId)S.ls.receive(m.f,m.m)}
+  else if(m.t==='log'){peerLog=m.lines}
   else if(m.t==='need'){if(S.ls&&m.s===S.syncId)S.ls.resend(m.f)}
   else if(m.t==='ck'&&S.role==='host'){if(m.s===S.syncId){S.guestChecks.set(m.f,m.h);compareCheck(m.f)}}
   /* Player 2 only says 'ready' while it has no running match, so it always needs a sync (a duplicate can trail a fresh sync briefly). */
@@ -85,10 +87,11 @@ function bindNetwork(net){net.on('connected',()=>{if(net!==S.net)return;S.linkHe
  net.on('health',healthy=>{if(net!==S.net)return;note(healthy?'traffic resumed':'no traffic for 3.5 s');S.linkHealthy=healthy;if(S.role==='host')updatePause();else if(!healthy){release();S.paused=true;overlay('RECONNECTING','Your fight resumes automatically.')}if(!healthy)badge('RECONNECTING','warn')});
  net.on('disconnected',()=>{if(net!==S.net)return;STATS.drops++;note('connection dropped');release();S.linkHealthy=false;if(S.role==='host')updatePause();else{S.paused=true;overlay('RECONNECTING','Keeping your place. No need to rejoin.')}badge('RECONNECTING','warn');status('Restoring the connection automatically…');lobby()});
  net.on('retry',()=>{if(net===S.net)status('Finding your friend. Keep their arcade open…')});
- net.on('latency',ms=>{if(net!==S.net)return;S.rtt=S.rtt?S.rtt*.8+ms*.2:ms;S.ls?.setDelay(delayFor(S.rtt));badge(ms+' MS',ms>160?'warn':'connected');status(S.role==='host'?'Player 1 · two-player arcade':'Player 2 · two-player arcade');if(ms>180&&!S.warnedLag){S.warnedLag=true;toast('The connection is slow ('+ms+' ms). A stronger Wi-Fi signal helps.')}});
+ net.on('latency',ms=>{if(net!==S.net)return;S.rtt=S.rtt?S.rtt*.8+ms*.2:ms;S.ls?.setDelay(delayFor(S.rtt));badge(ms+' MS','connected');status(S.role==='host'?'Player 1 · two-player arcade':'Player 2 · two-player arcade');});
  net.on('missing',code=>{if(net===S.net&&!net.connected){overlay('NO ROOM '+code,'Nobody is hosting this code right now. Check the code; the host must keep their room open. Still trying…');$('leaveOverlay').hidden=false}});
  net.on('unreachable',()=>{if(net===S.net&&!net.connected){overlay('STILL CONNECTING','Keep your friend’s arcade open. Some strict networks block direct connections; try another Wi-Fi or mobile data.');$('leaveOverlay').hidden=false}});
  net.on('warning',message=>{if(net===S.net)status(message)});
+ net.on('trace',text=>{if(net===S.net)note(text)});
  net.on('fatal',message=>{if(net!==S.net)return;S.fatal=true;release();S.paused=true;S.ls?.stop();overlay('MATCH UNAVAILABLE',message);$('leaveOverlay').hidden=false;badge('UNAVAILABLE','warn')});
  net.on('left',()=>{if(net!==S.net)return;note('the other player left');stopOnline();if(S.role==='guest'){S.paused=true;overlay('MATCH OVER','Your friend closed their arcade.');$('leaveOverlay').hidden=false;return}S.guestReady=false;badge('WAITING');updatePause();lobby();toast('Player 2 left. Your room stays open for a new challenger.')});
 }
@@ -172,7 +175,7 @@ $('restartButton').onclick=async()=>{if(!S.engineReady||S.busy||S.paired)return;
 $('startButton').onclick=()=>{if(!S.started&&S.role==='host'){solo();return}if(!isPlaying())return;haptics.tap();if(S.ls?.running)S.ls.pressStart();else if(S.role==='host')startWithCredit(0)};
 $('soundButton').onclick=()=>{if(!S.audioUnlocked){S.muted=false;unlockAudio()}else{S.muted=!S.muted;applyVolume()}store.set('turbo-muted',S.muted?'1':'0')};
 $('helpButton').onclick=()=>showDialog('helpDialog');
-function showInfo(){const d=engine()?.diagnostics?.();$('infoSummary').textContent=[(S.role==='host'?'Player 1 (host)':'Player 2')+' · '+VERSION_LABEL,'room '+(S.net?.code||'—')+' · '+(S.net?.connected?'connected':'not connected')+' · ping '+Math.round(S.rtt)+' ms · input delay '+(S.ls?.delay??'—')+' frames','frame '+(S.ls?.frame??'—')+' · '+STATS.fps+' fps · drops '+STATS.drops+' · syncs '+STATS.syncs+' · corrections '+STATS.fixes,'waits >250 ms: '+STATS.stalls+' (longest '+Math.round(STATS.longestStall)+' ms) · input re-requests '+STATS.needs+' · sound '+(d?.audioState||'—')].join('\n');$('infoLog').textContent=LOG.slice().reverse().join('\n')||'Nothing yet.'}
+function showInfo(){const d=engine()?.diagnostics?.();$('infoSummary').textContent=[(S.role==='host'?'Player 1 (host)':'Player 2')+' · '+VERSION_LABEL,'room '+(S.net?.code||'—')+' · '+(S.net?.connected?'connected':'not connected')+' · ping '+Math.round(S.rtt)+' ms · input delay '+(S.ls?.delay??'—')+' frames','frame '+(S.ls?.frame??'—')+' · '+STATS.fps+' fps · drops '+STATS.drops+' · syncs '+STATS.syncs+' · corrections '+STATS.fixes,'waits >250 ms: '+STATS.stalls+' (longest '+Math.round(STATS.longestStall)+' ms) · input re-requests '+STATS.needs+' · sound '+(d?.audioState||'—')].join('\n');$('infoLog').textContent=(LOG.slice().reverse().join('\n')||'Nothing yet.')+(peerLog.length?'\n\n— other phone —\n'+peerLog.slice().reverse().join('\n'):'')}
 $('infoButton').onclick=()=>{showDialog('infoDialog');showInfo()};
 $('copyInfo').onclick=async()=>{try{await navigator.clipboard.writeText($('infoSummary').textContent+'\n\n'+$('infoLog').textContent);toast('Copied. Paste it in a message.')}catch{toast('Take a screenshot instead.')}};
 for(const b of document.querySelectorAll('[data-close]'))b.onclick=resume;for(const d of document.querySelectorAll('dialog'))d.addEventListener('cancel',e=>{e.preventDefault();resume()});
@@ -190,4 +193,4 @@ window.addEventListener('online',()=>{S.net?.connect();S.net?.reconnectBroker()}
 (async()=>{const size=Number(store.get('turbo-controls-size'));if(size>=.8&&size<=1.25){$('controlSize').value=size;document.documentElement.style.setProperty('--size',size)}const volume=Number(store.get('turbo-volume')??.8);if(volume>=0&&volume<=1){S.volume=volume;$('volume').value=volume}S.muted=store.get('turbo-muted')==='1';setView(store.get('turbo-view'));setRumble(haptics.mode);
  const room=normalizeCode(new URLSearchParams(location.hash.slice(1)).get('room'));if(room&&validCode(room))join(room);else{lobby();ensureEngine().catch(e=>{overlay('ARCADE COULD NOT START',e.message);$('retryConnection').hidden=false})}
  if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{})})();
-if(['127.0.0.1','localhost'].includes(location.hostname))window.__turbo={state:S,engine,availability,haptics,onHit,FRAME_MS,diagnostics:()=>({role:S.role,engineReady:S.engineReady,started:S.started,paired:S.paired,paused:S.paused,reason:S.reason,localPause:S.localPause,away:S.away,remoteAway:S.remoteAway,remotePause:S.remotePause,guestReady:S.guestReady,syncing:S.syncing,frame:S.ls?.frame,delay:S.ls?.delay,stalled:S.stalled,connected:S.net?.connected,data:S.net?.conn?.peerConnection?.connectionState,fast:S.net?.fast?.readyState,engine:engine()?.diagnostics?.()})};
+if(['127.0.0.1','localhost'].includes(location.hostname))window.__turbo={state:S,log:()=>LOG.slice(),stats:()=>({...STATS}),engine,availability,haptics,onHit,FRAME_MS,diagnostics:()=>({role:S.role,engineReady:S.engineReady,started:S.started,paired:S.paired,paused:S.paused,reason:S.reason,localPause:S.localPause,away:S.away,remoteAway:S.remoteAway,remotePause:S.remotePause,guestReady:S.guestReady,syncing:S.syncing,frame:S.ls?.frame,delay:S.ls?.delay,stalled:S.stalled,connected:S.net?.connected,data:S.net?.conn?.peerConnection?.connectionState,fast:S.net?.fast?.readyState,engine:engine()?.diagnostics?.()})};

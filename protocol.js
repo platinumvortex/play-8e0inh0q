@@ -13,7 +13,7 @@ export function normalizeCode(text){const code=String(text??'').toUpperCase().re
 export function validCode(s){return typeof s==='string'&&s.length===CODE_LENGTH&&[...s].every(c=>ALPHABET.includes(c));}
 const session=s=>typeof s==='string'&&/^[a-z0-9]{1,12}$/.test(s),frame=f=>Number.isSafeInteger(f)&&f>=0;
 /* State chunks (match sync) may be large; everything else is small. */
-export function decodePacket(data){if(typeof data!=='string'||data.length>70000)return null;let m;try{m=JSON.parse(data)}catch{return null}if(!m||typeof m!=='object'||Array.isArray(m)||typeof m.t!=='string')return null;if(m.t!=='sc'&&data.length>2048)return null;
+export function decodePacket(data){if(typeof data!=='string'||data.length>70000)return null;let m;try{m=JSON.parse(data)}catch{return null}if(!m||typeof m!=='object'||Array.isArray(m)||typeof m.t!=='string')return null;if(m.t!=='sc'&&m.t!=='log'&&data.length>2048)return null;if(m.t==='log'&&data.length>4096)return null;
  switch(m.t){case'input':return Number.isSafeInteger(m.seq)&&m.seq>=0&&Number.isInteger(m.mask)&&m.mask>=0&&m.mask<=ALL_INPUTS?m:null;
  case'ping':case'pong':return Number.isFinite(m.at)&&m.at>=0?m:null;
  case'hello':return m.version===VERSION&&typeof m.session==='string'&&/^[a-f0-9]{32}$/.test(m.session)?m:null;
@@ -28,6 +28,7 @@ export function decodePacket(data){if(typeof data!=='string'||data.length>70000)
  case'ck':return session(m.s)&&frame(m.f)&&typeof m.h==='string'&&m.h.length<=16?m:null;
  case'sync':return session(m.id)&&frame(m.f)&&['new','resume','fix'].includes(m.kind)&&Number.isInteger(m.n)&&m.n>=1&&m.n<=64?m:null;
  case'sc':return session(m.id)&&Number.isInteger(m.i)&&m.i>=0&&m.i<64&&typeof m.d==='string'&&/^[A-Za-z0-9+/=]*$/.test(m.d)?m:null;
+ case'log':return Array.isArray(m.lines)&&m.lines.length<=25&&m.lines.every(l=>typeof l==='string'&&l.length<=110)?m:null;
  case'synced':return session(m.id)?m:null;
  case'countdown':return Number.isInteger(m.value)&&m.value>=0&&m.value<=3?m:null;
  default:return null;}}
