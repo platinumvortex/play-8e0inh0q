@@ -1,5 +1,5 @@
-export const VERSION = 'turbo-4';
-export const PREFIX = 'turbo-arcade-v4-';
+export const VERSION = 'turbo-5';
+export const PREFIX = 'turbo-arcade-v5-';
 /* Four characters without look-alikes (0/O, 1/I/L), so a code can be read out loud. */
 export const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export const CODE_LENGTH = 4;

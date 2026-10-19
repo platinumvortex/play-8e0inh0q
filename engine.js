@@ -1,6 +1,11 @@
 /* FinalBurn Neo (the core Fightcade uses for netplay), pinned to the EmulatorJS stable 2025-06-14 build. */
 (()=>{
  try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch{}
+ /* Safari only frees the emulator's per-frame garbage (sound clips, frame uploads) when its JavaScript heap grows, and the
+    emulator allocates almost nothing there. Left alone, the page's memory climbed ~45 MB a minute until iOS killed it,
+    which reloads the page to the main screen. A short-lived buffer every half second keeps collections running:
+    measured in WebKit, memory then stays flat (~285 MB) with no change in frame rate. */
+ let gcNudge=null;setInterval(()=>{gcNudge=new ArrayBuffer(8<<20);new Uint8Array(gcNudge)[0]=1},500);
  let ready=false,starting=null,url=null;
  /* Online play advances the emulator one frame at a time. Emscripten schedules every main-loop tick through
     requestAnimationFrame or setTimeout with a function named MainLoop_runner; while locked, those ticks are held

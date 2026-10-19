@@ -1,4 +1,4 @@
-const CACHE='turbo-arcade-shell-v14';
+const CACHE='turbo-arcade-shell-v15';
 const SHELL=['./','index.html','style.css','app.js','protocol.js','network.js','connection.json','controls.js','haptics.js','rom.js','rom-manifest.json','engine.html','engine.js','icon.svg','icon-192.png','icon-512.png','apple-touch-icon.png','manifest.webmanifest','vendor/peerjs.min.js','vendor/fflate.js','vendor/emulator/loader.js','vendor/emulator/emulator.min.js','vendor/emulator/emulator.min.css','vendor/emulator/compression/extract7z.js','vendor/emulator/compression/extractzip.js','vendor/emulator/cores/reports/fbneo.json','vendor/emulator/cores/fbneo-legacy-wasm.data','lockstep.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('turbo-arcade-shell-')&&k!==CACHE).map(k=>caches.delete(k))))));
